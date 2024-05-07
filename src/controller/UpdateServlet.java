@@ -2,8 +2,10 @@ package controller;
 
 import java.io.IOException;
 import java.sql.Timestamp;
+import java.util.List;
 
 import javax.persistence.EntityManager;
+import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -11,6 +13,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import models.Message;
+import models.validators.MessageValidator;
 import utils.DBUtil;
 
 /**
@@ -46,13 +49,25 @@ public class UpdateServlet extends HttpServlet {
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
             m.setUpdated_at(currentTime);
 
-            em.getTransaction().begin();
-            em.getTransaction().commit();
-            em.close();
+            List<String> errors = MessageValidator.validate(m);
+            if(errors.size() > 0) {
+                em.close();
 
-            request.getSession().removeAttribute("message_id");
+                request.setAttribute("_token", request.getSession().getId());
+                request.setAttribute("message", m);
+                request.setAttribute("errors", errors);
 
-            response.sendRedirect(request.getContextPath() + "/index");
+                RequestDispatcher rd = request.getRequestDispatcher("/WEB-INF/views/messages/edit.jsp");
+                rd.forward(request, response);
+            } else {
+                em.getTransaction().begin();
+                em.getTransaction().commit();
+                request.getSession().setAttribute("flush", "更新が完了しました。");
+                em.close();
+
+                request.getSession().removeAttribute("message_id");
+                response.sendRedirect(request.getContextPath() + "/index");
+            }
         }
     }
 }
